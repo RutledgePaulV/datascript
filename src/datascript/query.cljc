@@ -60,7 +60,7 @@
 (defn same-keys? [a b]
   (and (= (count a) (count b))
        (every? #(contains? b %) (keys a))
-       (every? #(contains? b %) (keys a))))
+       (every? #(contains? a %) (keys b))))
 
 (defn- looks-like? [pattern form]
   (cond
@@ -139,7 +139,7 @@
       (every? number? (vals attrs-a)) ;; can’t conj into BTSetIter
       (let [idxb->idxa (vec (for [[sym idx-b] attrs-b]
                               [idx-b (attrs-a sym)]))
-            tlen    (->> (vals attrs-a) (reduce max) (inc)) 
+            tlen    (->> (vals attrs-a) (reduce max) (inc))
             tuples' (persistent!
                       (reduce
                         (fn [acc tuple-b]
@@ -194,11 +194,11 @@
   BindIgnore
   (in->rel [_ _]
     (prod-rel))
-  
+
   BindScalar
   (in->rel [binding value]
     (Relation. {(get-in binding [:variable :symbol]) 0} [(into-array [value])]))
-  
+
   BindColl
   (in->rel [binding coll]
     (cond
@@ -211,7 +211,7 @@
         (->> coll
           (map #(in->rel (:binding binding) %))
           (reduce sum-rel))))
-  
+
   BindTuple
   (in->rel [binding coll]
     (cond
@@ -450,7 +450,7 @@
         tuples-args (da/make-array len)]
     (dotimes [i len]
       (let [arg (nth args i)]
-        (if (symbol? arg) 
+        (if (symbol? arg)
           (if-some [source (get sources arg)]
             (da/aset static-args i source)
             (da/aset tuples-args i (get attrs arg)))
@@ -713,31 +713,31 @@
      (do
        (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
        (filter-by-pred context clause))
-     
+
      [[symbol? '*] '_] ;; function [(fn ?a ?b) ?res]
      (do
        (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
        (bind-by-fn context clause))
-     
+
      [source? '*] ;; source + anything
      (let [[source-sym & rest] clause]
        (binding [*implicit-source* (get (:sources context) source-sym)]
          (-resolve-clause context rest clause)))
-     
+
      '[or *] ;; (or ...)
      (let [[_ & branches] clause
            _        (check-free-same (bound-vars context) branches clause)
            contexts (map #(resolve-clause context %) branches)
            rels     (map #(reduce hash-join (:rels %)) contexts)]
        (assoc (first contexts) :rels [(reduce sum-rel rels)]))
-     
+
      '[or-join [[*] *] *] ;; (or-join [[req-vars] vars] ...)
      (let [[_ [req-vars & vars] & branches] clause
            bound (bound-vars context)]
        (check-bound bound req-vars orig-clause)
        (check-free-subset bound vars branches)
        (recur context (list* 'or-join (concat req-vars vars) branches) clause))
-     
+
      '[or-join [*] *] ;; (or-join [vars] ...)
      (let [[_ vars & branches] clause
            vars         (set vars)
@@ -747,11 +747,11 @@
            rels         (map #(reduce hash-join (:rels %)) contexts)
            sum-rel      (reduce sum-rel rels)]
        (update context :rels collapse-rels sum-rel))
-     
+
      '[and *] ;; (and ...)
      (let [[_ & clauses] clause]
        (reduce resolve-clause context clauses))
-     
+
      '[not *] ;; (not ...)
      (let [[_ & clauses] clause
            bound            (bound-vars context)
@@ -766,7 +766,7 @@
                               (single (:rels context'))
                               (reduce hash-join (:rels negation-context)))]
        (assoc context' :rels [negation]))
-     
+
      '[not-join [*] *] ;; (not-join [vars] ...)
      (let [[_ vars & clauses] clause
            bound            (bound-vars context)
@@ -779,7 +779,7 @@
                               (single (:rels context'))
                               (reduce hash-join (:rels negation-context)))]
        (assoc context' :rels [negation]))
-     
+
      '[*] ;; pattern
      (let [source   *implicit-source*
            pattern  (resolve-pattern-lookup-refs source clause)
@@ -836,16 +836,16 @@
   ([acc rels symbols]
    (cond+
      :let [rel (first rels)]
- 
+
      (nil? rel) acc
- 
+
      ;; one empty rel means final set has to be empty
      (empty? (:tuples rel)) []
- 
+
      :let [keep-attrs (select-keys (:attrs rel) symbols)]
- 
+
      (empty? keep-attrs) (recur acc (next rels) symbols)
- 
+
      :let [copy-map (to-array (map #(get keep-attrs %) symbols))
            len      (count symbols)]
 
