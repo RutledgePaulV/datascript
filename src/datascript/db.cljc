@@ -438,11 +438,46 @@
   #?(:clj  (. clojure.lang.Util (hasheq x))
      :cljs (hash x)))
 
-(defn value-compare
-  ^long [x y]
+(declare+ ^number value-compare [x y])
+
+(defn- seq-compare [xs ys]
+  (let [cx (count xs)
+        cy (count ys)]
+    (cond
+      (< cx cy)
+      -1
+
+      (> cx cy)
+      1
+
+      :else
+      (loop [xs xs
+             ys ys]
+        (if (empty? xs)
+          0
+          (let [x (first xs)
+                y (first ys)]
+            (cond
+              (and (nil? x) (nil? y))
+              (recur (next xs) (next ys))
+
+              (nil? x)
+              -1
+
+              (nil? y)
+              1
+
+              :else
+              (let [v (value-compare x y)]
+                (if (= v 0)
+                  (recur (next xs) (next ys))
+                  v)))))))))
+
+(defn+ ^number value-compare [x y]
   (try
     (cond
       (= x y) 0
+      (and (sequential? x) (sequential? y)) (seq-compare x y)
       #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
       #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
           :cljs [(satisfies? IComparable x) (-compare x y)])
@@ -1004,11 +1039,26 @@
      :pull-attrs    (lru/cache 100)
      :hash          (atom 0)}))
 
-(defn- init-max-eid [eavt]
-  (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
-        (first)
-        (:e))
-    e0))
+(defn- init-max-eid [rschema eavt avet]
+  (let [max     #(if (and %2 (> %2 %1)) %2 %1)
+        max-eid (some->
+                  (set/rslice eavt
+                    (datom (dec tx0) nil nil txmax)
+                    (datom e0 nil nil tx0))
+                  first :e)
+        res     (max e0 max-eid)
+        max-ref (fn [attr]
+                  (some->
+                    (set/rslice avet
+                      (datom (dec tx0) attr (dec tx0) txmax)
+                      (datom e0 attr e0 tx0))
+                    first :v))
+        refs    (:db.type/ref rschema)
+        res     (reduce
+                  (fn [res attr]
+                    (max res (max-ref attr)))
+                  res refs)]
+    res))
 
 (defn ^DB init-db [datoms schema opts]
   (when-some [not-datom (first (drop-while datom? datoms))]
@@ -1030,7 +1080,7 @@
         vaet-arr  (to-array avet-datoms)
         _           (arrays/asort vaet-arr cmp-datoms-vaet-quick)
         vaet        (set/from-sorted-array cmp-datoms-vaet vaet-arr (arrays/alength vaet-arr) opts)
-        max-eid     (init-max-eid eavt)
+        max-eid     (init-max-eid rschema eavt avet)
         max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
     (map->DB
       {:schema        schema
@@ -1393,7 +1443,12 @@
   [db entity]
   (if-some [idents (not-empty (-attrs-by db :db.unique/identity))]
     (let [resolve (fn [a v]
-                    (:e (first (-datoms db :avet a v nil nil))))
+                    (cond
+                      (not (ref? db a))
+                      (:e (first (-datoms db :avet a v nil nil)))
+
+                      (not (tempid? v))
+                      (:e (first (-datoms db :avet a (entid db v) nil nil)))))
           split   (fn [a vs]
                     (reduce
                       (fn [acc v]

@@ -1,4 +1,4 @@
-(def version "1.5.4")
+(def version "1.6.5")
 
 (defproject datascript (str version (System/getenv "DATASCRIPT_CLASSIFIER"))
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -7,9 +7,10 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure       "1.10.2"   :scope "provided"]
-    [org.clojure/clojurescript "1.10.844" :scope "provided"]
-    [persistent-sorted-set     "0.3.0"]
+    [org.clojure/clojure         "1.10.2"   :scope "provided"]
+    [org.clojure/clojurescript   "1.10.844" :scope "provided"]
+    [persistent-sorted-set       "0.3.0"]
+    [io.github.tonsky/extend-clj "0.1.0"]
   ]
   
   :plugins [
@@ -21,7 +22,7 @@
     *print-namespace-maps* false
 ;;     *unchecked-math* :warn-on-boxed
   }
-  :jvm-opts ["-Xmx2g" "-server"]
+  :jvm-opts ["-Xmx2g" "-server" "-Dclojure.main.report=stderr"]
   
   :cljsbuild { 
     :builds [
