@@ -667,7 +667,7 @@
     (update :eavt persistent!)
     (update :aevt persistent!)
     (update :avet persistent!)
-      (update :vaet persistent!)))
+    (update :vaet persistent!)))
 
 #?(:clj
     (defn vpred [v]
@@ -710,7 +710,7 @@
                                                        :eavt    (empty (.-eavt db))
                                                        :aevt    (empty (.-aevt db))
                                                        :avet    (empty (.-avet db))
-                                                       :vaet.   (empty (.-vaet db))})
+                                                       :vaet    (empty (.-vaet db))})
                                                   (with-meta (meta db))))
                             (asTransient [db] (db-transient db))
        clojure.lang.ITransientCollection
